@@ -17,6 +17,7 @@ jobs:
   tfsec:
     name: Run tfsec sarif report
     runs-on: ubuntu-latest
+    if: "contains(github.event.head_commit.message, '--tfsec')"
     permissions:
       actions: read
       contents: read
