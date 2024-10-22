@@ -23,7 +23,7 @@ jobs:
       run: pip install trufflehog
 
     - name: Run TruffleHog
-      run: trufflehog filesystem --json . > trufflehog-results.json
+      run: trufflehog filesystem --json --directory . > trufflehog-results.json
 
     - name: Convert TruffleHog JSON to SARIF
       run: |
@@ -78,7 +78,7 @@ jobs:
             json.dump(sarif, f)
         "
 
-        - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-            sarif_file: trufflehog-results.sarif
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: trufflehog-results.sarif
