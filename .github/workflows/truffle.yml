@@ -1,84 +1,38 @@
-name: TruffleHog Secret Scan
+name: TruffleHog Scan
 
-on:
+on: 
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-    branches: [ main ]
 
 jobs:
-  trufflehog:
+  trufflehog-scan:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.x'
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
 
-    - name: Install TruffleHog
-      run: pip install trufflehog
+      - name: Install TruffleHog
+        run: |
+          python -m pip install --upgrade pip
+          pip install trufflehog
 
-    - name: Run TruffleHog
-      run: trufflehog filesystem --json --directory . > trufflehog-results.json
+      - name: Run TruffleHog
+        run: trufflehog git file://$(pwd) --json > trufflehog-results.json
 
-    - name: Convert TruffleHog JSON to SARIF
-      run: |
-        python -c "
-        import json
-        import sys
+      - name: Convert TruffleHog results to SARIF
+        run: |
+          pip install sarif-tools
+          cat trufflehog-results.json | trufflehog2sarif > trufflehog-results.sarif
 
-        def convert_to_sarif(trufflehog_json):
-            sarif = {
-                'version': '2.1.0',
-                'runs': [{
-                    'tool': {
-                        'driver': {
-                            'name': 'TruffleHog',
-                            'informationUri': 'https://github.com/trufflesecurity/trufflehog',
-                            'rules': []
-                        }
-                    },
-                    'results': []
-                }]
-            }
-            for item in trufflehog_json:
-                rule_id = item['rule']
-                if rule_id not in [rule['id'] for rule in sarif['runs'][0]['tool']['driver']['rules']]:
-                    sarif['runs'][0]['tool']['driver']['rules'].append({
-                        'id': rule_id,
-                        'name': rule_id,
-                        'fullDescription': {'text': item['description']}
-                    })
-                sarif['runs'][0]['results'].append({
-                    'ruleId': rule_id,
-                    'level': 'error',
-                    'message': {'text': item['description']},
-                    'locations': [{
-                        'physicalLocation': {
-                            'artifactLocation': {'uri': item['path']},
-                            'region': {
-                                'startLine': item['line'],
-                                'startColumn': 1,
-                                'endLine': item['line'],
-                                'endColumn': 1
-                            }
-                        }
-                    }]
-                })
-            return sarif
-
-        with open('trufflehog-results.json', 'r') as f:
-            trufflehog_json = json.load(f)
-        sarif = convert_to_sarif(trufflehog_json)
-        with open('trufflehog-results.sarif', 'w') as f:
-            json.dump(sarif, f)
-        "
-
-    - name: Upload SARIF file
-      uses: github/codeql-action/upload-sarif@v2
-      with:
-        sarif_file: trufflehog-results.sarif
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: trufflehog-results.sarif
